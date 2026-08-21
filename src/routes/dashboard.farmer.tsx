@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { fadeInUp, staggerContainer } from "@/lib/animations";
-import { KYBVerificationModal } from "@/components/kyb/KYBVerificationModal";
-import { ProduceUploadModal } from "@/components/marketplace/ProduceUploadModal";
 import {
   Sprout,
   Plus,
@@ -12,43 +9,31 @@ import {
   Clock,
   CheckCircle2,
   DollarSign,
-  Eye,
-  ToggleLeft,
-  ToggleRight,
   ShieldCheck,
   Sparkles,
   MapPin,
+  ToggleLeft,
+  ToggleRight,
+  Eye,
+  Building2,
+  Truck,
+  Leaf,
+  Layers,
 } from "lucide-react";
-import { Page, PageHeader } from "@/components/layout/AppShell";
+import { DashboardShell, type DashboardSection } from "@/components/dashboard/DashboardShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { DashboardCard } from "@/components/common/DashboardCard";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { TrustScore } from "@/components/trust/TrustScore";
 import { TrustBreakdownCard } from "@/components/trust/TrustBreakdownCard";
 import { ProduceImage } from "@/components/marketplace/ProduceImage";
-import { AIAssistant } from "@/components/ai/AIAssistant";
+import { KYBVerificationModal } from "@/components/kyb/KYBVerificationModal";
+import { ProduceUploadModal } from "@/components/marketplace/ProduceUploadModal";
+import { CropScanner } from "@/components/ai/CropScanner";
 import { useApp, formatNaira, timeAgo } from "@/lib/store";
-import type { ProduceCategory } from "@/lib/types";
+import { fadeInUp, staggerContainer } from "@/lib/animations";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/farmer")({
@@ -64,24 +49,24 @@ function FarmerDashboard() {
     currentUser,
     getTrust,
     getUser,
-    createListing,
     toggleListing,
     setOrderStatus,
-    refreshLiveState,
   } = useApp();
+
+  const [activeSection, setActiveSection] = useState<string>("overview");
 
   const farmerId = currentUser?.id ?? "u-farmer-1";
   const farmer = currentUser ??
     getUser(farmerId) ?? {
       id: farmerId,
-      name: "Commercial Farmer",
+      name: "Abdul Farms",
       role: "farmer" as const,
-      businessName: "Agro Farm Enterprise",
+      businessName: "Abdul Farms Enterprise",
       location: "Kano State",
       coords: { lat: 12.0022, lng: 8.592 },
-      avatar: "CF",
+      avatar: "AF",
       phone: "+234 800 000 0000",
-      bio: "Commercial agricultural producer.",
+      bio: "Commercial tomato and grain producer.",
       verified: true,
     };
   const trust = getTrust(farmerId);
@@ -93,197 +78,322 @@ function FarmerDashboard() {
     (o) => o.status === "Pending" || o.status === "Accepted" || o.status === "Awaiting Pickup",
   );
   const completedOrders = myOrders.filter((o) => o.status === "Completed");
-
   const totalRevenue = completedOrders.reduce((sum, o) => sum + o.totalPrice, 0);
 
-  // New listing dialog state
-  const [openNewListing, setOpenNewListing] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newCategory, setNewCategory] = useState<ProduceCategory>("Vegetables");
-  const [newQty, setNewQty] = useState("");
-  const [newPrice, setNewPrice] = useState("");
-  const [newLocation, setNewLocation] = useState(farmer.location);
-  const [newDesc, setNewDesc] = useState("");
-
-  const handleCreateListing = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName || !newQty || !newPrice) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    const created = createListing({
-      name: newName,
-      category: newCategory,
-      quantityKg: Number(newQty),
-      pricePerKg: Number(newPrice),
-      location: newLocation || farmer.location,
-      image: `/images/${newName.toLowerCase().includes("tomato") ? "tomatoes" : newName.toLowerCase().includes("maize") ? "maize" : "cassava"}.jpg`,
-      description: newDesc || `Freshly harvested ${newName} from ${farmer.name}.`,
-    });
-
-    toast.success(`Published listing for ${created.name}`);
-    setOpenNewListing(false);
-    setNewName("");
-    setNewQty("");
-    setNewPrice("");
-    setNewDesc("");
-  };
+  const sections: DashboardSection[] = [
+    {
+      id: "overview",
+      label: "Overview",
+      icon: Layers,
+    },
+    {
+      id: "listings",
+      label: "My Listings",
+      icon: Package,
+      count: myListings.length,
+    },
+    {
+      id: "orders",
+      label: "Incoming Orders",
+      icon: Clock,
+      count: pendingOrders.length,
+      badge: pendingOrders.length > 0 ? `${pendingOrders.length} New` : undefined,
+    },
+    {
+      id: "trust",
+      label: "Trust & KYB",
+      icon: ShieldCheck,
+      badge: trust ? `${trust.score} Score` : undefined,
+    },
+    {
+      id: "crop-doctor",
+      label: "AI Crop Doctor",
+      icon: Sparkles,
+      highlight: true,
+      badge: "AI Vision",
+    },
+  ];
 
   return (
-    <Page>
-      <PageHeader
-        title="My Agrolink Network"
-        subtitle={`${farmer.name} (${farmer.location}) · Manage produce listings, track buyer orders, and build your reputation.`}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button asChild variant="outline" className="font-semibold text-emerald-700 dark:text-emerald-400 border-emerald-500/40 bg-emerald-500/10">
-              <Link to="/insights">
-                <Sparkles className="mr-1.5 size-4" />
-                AI Crop Scanner
-              </Link>
-            </Button>
-            <KYBVerificationModal
-              currentTier={farmer.role === "farmer" ? 2 : 1}
-              isVerified={true}
+    <DashboardShell
+      title={farmer.name}
+      subtitle={`${farmer.location} · Commercial Producer Hub`}
+      role="farmer"
+      roleBadgeText="Farmer"
+      sections={sections}
+      activeSection={activeSection}
+      onSectionChange={setActiveSection}
+      headerActions={
+        <div className="flex flex-wrap items-center gap-2">
+          <KYBVerificationModal currentTier={2} isVerified={trust?.verified ?? true} />
+          <ProduceUploadModal />
+        </div>
+      }
+    >
+      {/* ========================================================================= */}
+      {/* 1. OVERVIEW SECTION                                                      */}
+      {/* ========================================================================= */}
+      {activeSection === "overview" && (
+        <div className="space-y-6">
+          {/* KPI Metrics */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {trust && (
+              <Card className="flex items-center justify-between p-4 shadow-xs">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Trust Rating
+                  </p>
+                  <p className="mt-0.5 font-display text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {trust.score}/100
+                  </p>
+                  <p className="text-xs text-muted-foreground">{trust.level} · {trust.rating}★</p>
+                </div>
+                <TrustScore trust={trust} size="sm" showLabel={false} />
+              </Card>
+            )}
+            <DashboardCard
+              label="Active Produce"
+              value={myListings.length}
+              hint={`${myListings.reduce((sum, p) => sum + p.quantityKg, 0).toLocaleString()} kg in stock`}
+              icon={Package}
             />
-            <ProduceUploadModal />
+            <DashboardCard
+              label="Pending Orders"
+              value={pendingOrders.length}
+              hint={`${pendingOrders.reduce((sum, o) => sum + o.quantityKg, 0).toLocaleString()} kg awaiting dispatch`}
+              icon={Clock}
+            />
+            <DashboardCard
+              label="Fulfill Revenue"
+              value={formatNaira(totalRevenue)}
+              hint={`${completedOrders.length} fulfilled orders`}
+              icon={TrendingUp}
+            />
           </div>
-        }
-      />
 
-      {/* KPI Cards Grid */}
-      <motion.div
-        initial="hidden"
-        animate="visible"
-        variants={staggerContainer}
-        className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-      >
-        {trust && (
-          <motion.div variants={fadeInUp}>
-            <Card className="flex items-center justify-between gap-0 p-5 shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-lift)]">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Trust Score
-                </p>
-                <p className="mt-1 font-display text-3xl font-bold text-success">
-                  {trust.score}/100
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {trust.level} · {trust.rating}★ Rating
-                </p>
+          {/* Quick Action Split Grid */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Active Orders Teaser */}
+            <Card className="p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div>
+                  <h3 className="font-display text-base font-bold">Active Orders Queue</h3>
+                  <p className="text-xs text-muted-foreground">Buyers awaiting your fulfillment</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs font-bold text-primary"
+                  onClick={() => setActiveSection("orders")}
+                >
+                  View All ({pendingOrders.length})
+                </Button>
               </div>
-              <TrustScore trust={trust} size="sm" showLabel={false} />
-            </Card>
-          </motion.div>
-        )}
-        <motion.div variants={fadeInUp}>
-          <DashboardCard
-            label="Active Listings"
-            value={myListings.length}
-            hint={`${myListings.reduce((sum, p) => sum + p.quantityKg, 0).toLocaleString()}kg total stock`}
-            icon={Package}
-          />
-        </motion.div>
-        <motion.div variants={fadeInUp}>
-          <DashboardCard
-            label="Pending Orders"
-            value={pendingOrders.length}
-            hint={`${pendingOrders.reduce((sum, o) => sum + o.quantityKg, 0).toLocaleString()}kg to fulfill`}
-            icon={Clock}
-          />
-        </motion.div>
-        <motion.div variants={fadeInUp}>
-          <DashboardCard
-            label="Completed Revenue"
-            value={formatNaira(totalRevenue)}
-            hint={`${completedOrders.length} completed transactions`}
-            icon={TrendingUp}
-          />
-        </motion.div>
-      </motion.div>
 
-      {/* Main Content Layout */}
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1.5fr_1fr]">
-        {/* Left Column: Orders & Inventory */}
-        <div className="space-y-8">
-          {/* Active Orders Queue */}
-          <Card className="gap-0 p-5 shadow-[var(--shadow-card)]">
-            <div className="flex items-center justify-between border-b pb-4">
-              <div>
-                <h2 className="font-display text-xl font-bold">Incoming & Active Orders</h2>
-                <p className="text-xs text-muted-foreground">
-                  Review buyer trust, accept orders, and mark produce ready for hauler pickup
-                </p>
-              </div>
-              <Badge variant="secondary">{pendingOrders.length} Active</Badge>
-            </div>
-
-            {pendingOrders.length === 0 ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">
-                No active orders at the moment. New buyer orders will appear here automatically.
-              </div>
-            ) : (
-              <div className="divide-y">
-                {pendingOrders.map((order) => {
-                  const buyer = getUser(order.buyerId);
-                  const buyerTrust = getTrust(order.buyerId);
-                  const produceItem = state.produce.find((p) => p.id === order.produceId);
-                  const delivery = state.deliveries.find((d) => d.id === order.deliveryId);
-
-                  return (
-                    <div key={order.id} className="py-4 space-y-3 first:pt-4 last:pb-0">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
+              {pendingOrders.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground">
+                  No active orders right now. New buyer purchase orders will appear here automatically.
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {pendingOrders.slice(0, 3).map((order) => {
+                    const buyer = getUser(order.buyerId);
+                    const produceItem = state.produce.find((p) => p.id === order.produceId);
+                    return (
+                      <div key={order.id} className="flex items-center justify-between py-2.5 text-xs">
                         <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm">
-                              {order.quantityKg}kg of {produceItem?.name ?? "Produce"}
-                            </span>
-                            <StatusBadge status={order.status} />
-                          </div>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Ordered by{" "}
-                            <span className="font-semibold text-foreground">
-                              {buyer?.name ?? "Buyer"}
-                            </span>{" "}
-                            ({buyer?.location}) · {timeAgo(order.createdAt)}
+                          <p className="font-bold text-foreground">
+                            {order.quantityKg}kg {produceItem?.name ?? "Produce"}
+                          </p>
+                          <p className="text-muted-foreground">
+                            Buyer: {buyer?.name} ({buyer?.location})
                           </p>
                         </div>
-                        <span className="font-display text-base font-bold">
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={order.status} />
+                          <span className="font-bold text-foreground font-mono">
+                            {formatNaira(order.totalPrice)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+
+            {/* AI Crop Doctor Teaser */}
+            <Card className="p-5 shadow-xs space-y-3 bg-emerald-500/5 border-emerald-500/20">
+              <div className="flex items-center gap-2">
+                <span className="grid size-8 place-items-center rounded-lg bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold">
+                  <Leaf className="size-4" />
+                </span>
+                <div>
+                  <h3 className="font-display text-base font-bold text-foreground">
+                    AI Crop Doctor & Vision
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Diagnose leaf pathogens & protect market yields
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Scan your crop photos for instant disease detection in English, Yorùbá, Hausa, or Igbo,
+                with direct linkage to listing your harvest in the marketplace.
+              </p>
+              <Button
+                size="sm"
+                className="w-full font-bold shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => setActiveSection("crop-doctor")}
+              >
+                <Sparkles className="mr-1.5 size-3.5" />
+                Open AI Crop Scanner
+              </Button>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. MY LISTINGS SECTION                                                   */}
+      {/* ========================================================================= */}
+      {activeSection === "listings" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
+            <div>
+              <h2 className="font-display text-lg font-bold">Produce Inventory & Stock</h2>
+              <p className="text-xs text-muted-foreground">
+                Manage your active agricultural catalog and farm gate pricing per kg
+              </p>
+            </div>
+            <ProduceUploadModal />
+          </div>
+
+          {myListings.length === 0 ? (
+            <Card className="p-10 text-center text-xs text-muted-foreground">
+              You have no active listings. Click <strong>+ Add Produce Listing</strong> above to post your harvest.
+            </Card>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {myListings.map((item) => (
+                <Card key={item.id} className="p-4 shadow-xs space-y-3">
+                  <div className="flex gap-3">
+                    <ProduceImage
+                      name={item.name}
+                      category={item.category}
+                      className="size-16 rounded-xl object-cover shrink-0 border"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <h4 className="font-bold text-sm truncate text-foreground">{item.name}</h4>
+                        <Badge variant={item.available ? "outline" : "secondary"} className="text-[10px] shrink-0">
+                          {item.available ? "Live" : "Paused"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{item.category} · {item.location}</p>
+                      <p className="font-display text-sm font-bold text-primary mt-1">
+                        {formatNaira(item.pricePerKg)}/kg
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t pt-2.5 text-xs text-muted-foreground">
+                    <span>Stock: <strong className="text-foreground">{item.quantityKg.toLocaleString()}kg</strong></span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleListing(item.id);
+                        toast.success(`Updated availability for ${item.name}`);
+                      }}
+                      className="flex items-center gap-1 font-semibold text-primary hover:underline cursor-pointer"
+                    >
+                      {item.available ? (
+                        <>
+                          <ToggleRight className="size-4 text-emerald-600" /> Mark Paused
+                        </>
+                      ) : (
+                        <>
+                          <ToggleLeft className="size-4" /> Mark Active
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3. INCOMING ORDERS SECTION                                               */}
+      {/* ========================================================================= */}
+      {activeSection === "orders" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
+            <div>
+              <h2 className="font-display text-lg font-bold">Buyer Order Queue</h2>
+              <p className="text-xs text-muted-foreground">
+                Accept incoming purchase contracts and notify haulers when cargo is packed
+              </p>
+            </div>
+            <Badge variant="secondary">{pendingOrders.length} Active</Badge>
+          </div>
+
+          {pendingOrders.length === 0 ? (
+            <Card className="p-10 text-center text-xs text-muted-foreground">
+              No pending buyer orders at this moment.
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {pendingOrders.map((order) => {
+                const buyer = getUser(order.buyerId);
+                const buyerTrust = getTrust(order.buyerId);
+                const produceItem = state.produce.find((p) => p.id === order.produceId);
+                const delivery = state.deliveries.find((d) => d.id === order.deliveryId);
+
+                return (
+                  <Card key={order.id} className="p-4 shadow-xs space-y-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2 border-b pb-2.5">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-foreground">
+                            {order.quantityKg}kg {produceItem?.name ?? "Produce"}
+                          </span>
+                          <StatusBadge status={order.status} />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Buyer: <strong>{buyer?.name}</strong> ({buyer?.location}) · {timeAgo(order.createdAt)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-display text-base font-bold text-foreground">
                           {formatNaira(order.totalPrice)}
                         </span>
-                      </div>
-
-                      {/* Buyer Trust & Delivery Snippet */}
-                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 p-3 text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">Buyer Trust:</span>
-                          {buyerTrust && (
-                            <span className="font-semibold text-success flex items-center gap-1">
-                              <ShieldCheck className="size-3.5" />
-                              {buyerTrust.score} ({buyerTrust.level})
-                            </span>
-                          )}
-                        </div>
-                        {delivery && (
-                          <div className="text-muted-foreground">
-                            Haulage:{" "}
-                            <span className="font-medium text-foreground">
-                              {delivery.status} ({delivery.distanceKm}km)
-                            </span>
-                          </div>
+                        {buyerTrust && (
+                          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-end gap-1">
+                            <ShieldCheck className="size-3" /> {buyerTrust.score} Trust ({buyerTrust.level})
+                          </p>
                         )}
                       </div>
+                    </div>
 
-                      {/* Action Buttons for Farmer */}
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {/* Actions */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                      {delivery && (
+                        <span className="text-muted-foreground">
+                          Corridor: <strong>{delivery.status}</strong> ({delivery.distanceKm}km)
+                        </span>
+                      )}
+
+                      <div className="flex items-center gap-2 ml-auto">
                         {order.status === "Pending" && (
                           <>
                             <Button
                               size="sm"
                               onClick={() => {
                                 setOrderStatus(order.id, "Accepted");
-                                toast.success(`Order ${order.id} accepted`);
+                                toast.success(`Order accepted`);
                               }}
                             >
                               Accept Order
@@ -293,7 +403,7 @@ function FarmerDashboard() {
                               variant="outline"
                               onClick={() => {
                                 setOrderStatus(order.id, "Cancelled");
-                                toast.warning(`Order ${order.id} declined`);
+                                toast.warning(`Order declined`);
                               }}
                             >
                               Decline
@@ -304,170 +414,82 @@ function FarmerDashboard() {
                         {order.status === "Accepted" && (
                           <Button
                             size="sm"
-                            variant="secondary"
+                            className="bg-amber-600 hover:bg-amber-700 text-white"
                             onClick={() => {
                               setOrderStatus(order.id, "Awaiting Pickup");
-                              toast.success(
-                                `Order ${order.id} marked as ready and awaiting hauler pickup`,
-                              );
+                              toast.success(`Produce marked ready for hauler pickup`);
                             }}
                           >
-                            Mark Ready for Pickup
+                            <Package className="mr-1.5 size-3.5" />
+                            Mark Ready for Hauler Pickup
                           </Button>
+                        )}
+
+                        {order.status === "Awaiting Pickup" && (
+                          <Badge variant="outline" className="text-amber-600 border-amber-500/30">
+                            Awaiting Transporter Arrival
+                          </Badge>
                         )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-
-          {/* Manage Produce Listings */}
-          <Card className="gap-0 p-5 shadow-[var(--shadow-card)]">
-            <div className="flex items-center justify-between border-b pb-4">
-              <div>
-                <h2 className="font-display text-xl font-bold">My Produce Inventory</h2>
-                <p className="text-xs text-muted-foreground">
-                  Manage active listings, toggle availability, and check prices
-                </p>
-              </div>
-              <span className="text-xs font-semibold text-muted-foreground">
-                {myListings.length} total
-              </span>
+                  </Card>
+                );
+              })}
             </div>
-
-            <div className="mt-4 divide-y">
-              {myListings.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <ProduceImage
-                      name={item.name}
-                      category={item.category}
-                      src={item.image}
-                      className="size-16 rounded-xl shrink-0"
-                    />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-base">{item.name}</h3>
-                        <Badge
-                          variant={item.available ? "secondary" : "outline"}
-                          className="text-[11px]"
-                        >
-                          {item.available ? "Live" : "Inactive"}
-                        </Badge>
-                      </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {item.quantityKg.toLocaleString()}kg remaining · Listed{" "}
-                        {timeAgo(item.listedAt)}
-                      </p>
-                      <p className="mt-1 font-display text-sm font-bold text-primary">
-                        {formatNaira(item.pricePerKg)}
-                        <span className="text-xs font-normal text-muted-foreground">/kg</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 self-end sm:self-center">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        toggleListing(item.id);
-                        toast.info(
-                          `${item.name} is now ${item.available ? "hidden" : "visible on marketplace"}`,
-                        );
-                      }}
-                    >
-                      {item.available ? (
-                        <>
-                          <ToggleRight className="mr-1.5 size-4 text-success" />
-                          Available
-                        </>
-                      ) : (
-                        <>
-                          <ToggleLeft className="mr-1.5 size-4 text-muted-foreground" />
-                          Hidden
-                        </>
-                      )}
-                    </Button>
-                    <Button asChild size="sm" variant="ghost">
-                      <Link to="/marketplace/$produceId" params={{ produceId: item.id }}>
-                        <Eye className="size-4" />
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-
-        {/* Right Column: Trust Model, AI Assistant & Profile Stats */}
-        <div className="space-y-6">
-          {trust && (
-            <TrustBreakdownCard
-              trustProfile={{
-                userId: farmer.id,
-                score: trust.score,
-                level: trust.level,
-                rating: trust.rating,
-                completedTransactions: trust.completedTransactions,
-                successfulDeliveries: trust.successfulDeliveries,
-                successfulOrders: trust.completedTransactions,
-                cancelledOrders: trust.cancelledOrders,
-                fulfilmentRate: trust.fulfilmentRate,
-                cancellationRate: trust.cancellationRate,
-                disputeRate: 0,
-                lateRate: 0,
-                isVerified: trust.verified,
-                history: trust.history.map((h, i) => ({
-                  id: `th-${i}`,
-                  userId: farmer.id,
-                  type: "TRANSACTION_COMPLETED",
-                  scoreDelta: 2,
-                  resultingScore: h.score,
-                  reason: h.reason,
-                  timestamp: h.date,
-                })),
-                updatedAt: new Date().toISOString(),
-              }}
-            />
           )}
-
-          <AIAssistant role="farmer" />
-
-          {/* Quick Profile Summary */}
-          <Card className="gap-0 p-5 shadow-[var(--shadow-card)]">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-lg font-bold">Farm Details</h3>
-              <Button asChild variant="link" size="sm" className="p-0 h-auto">
-                <Link to="/profile/$userId" params={{ userId: farmer.id }}>
-                  Full Profile
-                </Link>
-              </Button>
-            </div>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{farmer.bio}</p>
-            <div className="mt-4 space-y-2 text-xs border-t pt-3">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Phone:</span>
-                <span className="font-medium">{farmer.phone}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Base Location:</span>
-                <span className="font-medium">{farmer.location}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Completed Sales:</span>
-                <span className="font-medium">{completedOrders.length} orders</span>
-              </div>
-            </div>
-          </Card>
         </div>
-      </div>
-    </Page>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 4. TRUST & KYB SECTION                                                    */}
+      {/* ========================================================================= */}
+      {activeSection === "trust" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
+            <div>
+              <h2 className="font-display text-lg font-bold">Trust Profile & Governance</h2>
+              <p className="text-xs text-muted-foreground">
+                Your reputation metrics, fulfillment track record, and CAC verification
+              </p>
+            </div>
+            <KYBVerificationModal currentTier={2} isVerified={trust?.verified ?? true} />
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {trust && <TrustBreakdownCard trustProfile={trust} />}
+
+            <Card className="p-5 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 border-b pb-3">
+                <Building2 className="size-4 text-primary" />
+                <h3 className="font-display text-base font-bold">Tier-2 KYB Enterprise Verification</h3>
+              </div>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between p-2 rounded-lg bg-muted/40">
+                  <span className="text-muted-foreground">CAC Registration:</span>
+                  <strong className="text-foreground">RC-849201 (Verified)</strong>
+                </div>
+                <div className="flex justify-between p-2 rounded-lg bg-muted/40">
+                  <span className="text-muted-foreground">Tax Identification (TIN):</span>
+                  <strong className="text-foreground">20489102-0001 (Active)</strong>
+                </div>
+                <div className="flex justify-between p-2 rounded-lg bg-muted/40">
+                  <span className="text-muted-foreground">Escrow Limit:</span>
+                  <strong className="text-emerald-600 font-bold">₦25,000,000 / order</strong>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 5. AI CROP DOCTOR SECTION                                                 */}
+      {/* ========================================================================= */}
+      {activeSection === "crop-doctor" && (
+        <div>
+          <CropScanner />
+        </div>
+      )}
+    </DashboardShell>
   );
 }

@@ -238,9 +238,11 @@ const LANGUAGE_LABELS: Record<NigerianLanguage, { label: string; flag: string }>
   ig: { label: "Igbo", flag: "🇳🇬" },
 };
 
+const DEFAULT_SAMPLE: PresetSample = PRESET_SAMPLES[0] as PresetSample;
+
 export function CropScanner({ onListingCreated }: { onListingCreated?: () => void }) {
   const router = useRouter();
-  const [selectedSample, setSelectedSample] = useState<PresetSample>(PRESET_SAMPLES[0]);
+  const [selectedSample, setSelectedSample] = useState<PresetSample>(DEFAULT_SAMPLE);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [analysisCompleted, setAnalysisCompleted] = useState(true);
@@ -256,7 +258,7 @@ export function CropScanner({ onListingCreated }: { onListingCreated?: () => voi
     {
       id: "m-1",
       sender: "ai",
-      text: `Hello! I have reviewed this ${selectedSample.crop} sample. How can I help you manage your crop and protect your market yield today?`,
+      text: `Hello! I have reviewed this ${DEFAULT_SAMPLE.crop} sample. How can I help you manage your crop and protect your market yield today?`,
       time: "Just now",
     },
   ]);
@@ -290,14 +292,16 @@ export function CropScanner({ onListingCreated }: { onListingCreated?: () => voi
 
     const reader = new FileReader();
     reader.onload = () => {
-      setCustomImage(reader.result as string);
-      runAnalysis({
-        ...PRESET_SAMPLES[0],
+      const dataUrl = reader.result as string;
+      setCustomImage(dataUrl);
+      const customSample: PresetSample = {
+        ...DEFAULT_SAMPLE,
         id: `custom-${Date.now()}`,
         name: "User Harvest Photo",
         crop: "Field Sample",
-        image: reader.result as string,
-      });
+        image: dataUrl,
+      };
+      runAnalysis(customSample);
     };
     reader.readAsDataURL(file);
   };
