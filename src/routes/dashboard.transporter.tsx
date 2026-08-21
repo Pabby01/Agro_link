@@ -14,6 +14,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { DashboardShell, type DashboardSection } from "@/components/dashboard/DashboardShell";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -109,8 +110,9 @@ function TransporterDashboard() {
   ];
 
   return (
-    <DashboardShell
-      title={transporter.name}
+    <ProtectedRoute allowedRoles={["transporter"]}>
+      <DashboardShell
+        title={transporter.name}
       subtitle={`${transporter.location} · Commercial Freight Fleet`}
       role="transporter"
       roleBadgeText="Transporter"
@@ -451,6 +453,7 @@ function TransporterDashboard() {
           </div>
         </div>
       )}
-    </DashboardShell>
+      </DashboardShell>
+    </ProtectedRoute>
   );
 }

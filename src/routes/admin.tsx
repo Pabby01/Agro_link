@@ -22,6 +22,7 @@ import {
   FileCheck,
 } from "lucide-react";
 import { DashboardShell, type DashboardSection } from "@/components/dashboard/DashboardShell";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { KYBAdminReviewTable } from "@/components/kyb/KYBAdminReviewTable";
 import { DisputeReviewTable } from "@/components/disputes/DisputeReviewTable";
 import { Card } from "@/components/ui/card";
@@ -185,8 +186,9 @@ function AdminDashboard() {
   ];
 
   return (
-    <DashboardShell
-      title="Admin Command Center"
+    <ProtectedRoute allowedRoles={["admin"]}>
+      <DashboardShell
+        title="Admin Command Center"
       subtitle="National Agricultural Supply-Chain Governance & Settlement"
       role="admin"
       roleBadgeText="Operations HQ"
@@ -483,6 +485,7 @@ function AdminDashboard() {
           </Card>
         </div>
       )}
-    </DashboardShell>
+      </DashboardShell>
+    </ProtectedRoute>
   );
 }

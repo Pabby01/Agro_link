@@ -16,6 +16,7 @@ import {
   Scale,
 } from "lucide-react";
 import { DashboardShell, type DashboardSection } from "@/components/dashboard/DashboardShell";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -121,8 +122,9 @@ function BuyerDashboard() {
   ];
 
   return (
-    <DashboardShell
-      title={buyer.name}
+    <ProtectedRoute allowedRoles={["buyer"]}>
+      <DashboardShell
+        title={buyer.name}
       subtitle={`${buyer.location} · Commercial Food Distribution`}
       role="buyer"
       roleBadgeText="Buyer"
@@ -494,6 +496,7 @@ function BuyerDashboard() {
           )}
         </DialogContent>
       </Dialog>
-    </DashboardShell>
+      </DashboardShell>
+    </ProtectedRoute>
   );
 }

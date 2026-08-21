@@ -21,6 +21,7 @@ import {
   Layers,
 } from "lucide-react";
 import { DashboardShell, type DashboardSection } from "@/components/dashboard/DashboardShell";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -115,8 +116,9 @@ function FarmerDashboard() {
   ];
 
   return (
-    <DashboardShell
-      title={farmer.name}
+    <ProtectedRoute allowedRoles={["farmer"]}>
+      <DashboardShell
+        title={farmer.name}
       subtitle={`${farmer.location} · Commercial Producer Hub`}
       role="farmer"
       roleBadgeText="Farmer"
@@ -490,6 +492,7 @@ function FarmerDashboard() {
           <CropScanner />
         </div>
       )}
-    </DashboardShell>
+      </DashboardShell>
+    </ProtectedRoute>
   );
 }
