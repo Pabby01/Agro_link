@@ -5,7 +5,6 @@ import {
   Sprout,
   ShoppingBasket,
   Truck,
-  ShieldCheck,
   Leaf,
   ArrowRight,
   Lock,
@@ -14,6 +13,12 @@ import {
   Building2,
   Phone,
   MapPin,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { LiquidCard } from "@/components/ui/LiquidCard";
 import { Button } from "@/components/ui/button";
@@ -55,13 +60,14 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+// Demo roles for hackathon evaluation (Farmer, Buyer, Transporter only — Admin excluded from public switch)
 const demoRoles: {
   role: Role;
   name: string;
   icon: typeof Sprout;
   blurb: string;
   home: string;
-  variant: "success" | "primary" | "gold" | "blue";
+  variant: "success" | "primary" | "gold";
 }[] = [
   {
     role: "farmer",
@@ -90,41 +96,150 @@ const demoRoles: {
     home: "/dashboard/transporter",
     variant: "gold",
   },
-  {
-    role: "admin",
-    name: "Agrolink Operations",
-    icon: ShieldCheck,
-    blurb:
-      "Monitor national supply corridors, platform GMV, trust score integrity, and flagged accounts.",
-    home: "/admin",
-    variant: "blue",
-  },
 ];
+
+type RegErrorKey =
+  | "fullName"
+  | "businessName"
+  | "email"
+  | "phone"
+  | "location"
+  | "password"
+  | "confirmPassword";
 
 function AuthPage() {
   const { setRole, refreshLiveState } = useApp();
   const router = useRouter();
 
-  // Login State
+  // Active Tab
+  const [activeTab, setActiveTab] = useState<"login" | "register" | "demo">(
+    IS_DEMO_MODE ? "demo" : "login",
+  );
+
+  // Login Form State
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [loginErrors, setLoginErrors] = useState<{ email?: string; password?: string }>({});
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // Register State
+  // Register Form State
   const [regFullName, setRegFullName] = useState("");
   const [regBusinessName, setRegBusinessName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
+  const [regConfirmPassword, setRegConfirmPassword] = useState("");
+  const [showRegPassword, setShowRegPassword] = useState(false);
   const [regRole, setRegRole] = useState<"farmer" | "buyer" | "transporter">("farmer");
   const [regPhone, setRegPhone] = useState("");
   const [regLocation, setRegLocation] = useState("");
+  const [regErrors, setRegErrors] = useState<Partial<Record<RegErrorKey, string>>>({});
   const [regLoading, setRegLoading] = useState(false);
+
+  // Email regex
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Phone regex (Nigerian & International formats)
+  const phoneRegex = /^(?:\+?234|0)[789][01]\d{8}$|^(\+?\d{10,14})$/;
+
+  const clearLoginError = (field: "email" | "password") => {
+    setLoginErrors((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const clearRegError = (field: RegErrorKey) => {
+    setRegErrors((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  // Validate Login Form
+  const validateLoginForm = (): boolean => {
+    const errors: { email?: string; password?: string } = {};
+
+    if (!loginEmail.trim()) {
+      errors.email = "Email address is required";
+    } else if (!emailRegex.test(loginEmail.trim())) {
+      errors.email = "Please enter a valid email address (e.g. name@company.ng)";
+    }
+
+    if (!loginPassword) {
+      errors.password = "Password is required";
+    } else if (loginPassword.length < 6) {
+      errors.password = "Password must be at least 6 characters";
+    }
+
+    setLoginErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Validate Register Form
+  const validateRegisterForm = (): boolean => {
+    const errors: Partial<Record<RegErrorKey, string>> = {};
+
+    if (!regFullName.trim()) {
+      errors.fullName = "Full Legal Name is required";
+    } else if (regFullName.trim().length < 3) {
+      errors.fullName = "Name must be at least 3 characters";
+    }
+
+    if (!regBusinessName.trim()) {
+      errors.businessName = "Business / Farm Name is required";
+    } else if (regBusinessName.trim().length < 2) {
+      errors.businessName = "Business name must be at least 2 characters";
+    }
+
+    if (!regEmail.trim()) {
+      errors.email = "Email address is required";
+    } else if (!emailRegex.test(regEmail.trim())) {
+      errors.email = "Please enter a valid email address";
+    }
+
+    const cleanPhone = regPhone.replace(/\s+/g, "");
+    if (!cleanPhone) {
+      errors.phone = "Phone number is required";
+    } else if (!phoneRegex.test(cleanPhone)) {
+      errors.phone = "Enter a valid Nigerian phone number (e.g. +234 803 123 4567 or 08031234567)";
+    }
+
+    if (!regLocation.trim()) {
+      errors.location = "Location (State / City) is required";
+    } else if (regLocation.trim().length < 2) {
+      errors.location = "Please provide your state or city";
+    }
+
+    if (!regPassword) {
+      errors.password = "Password is required";
+    } else if (regPassword.length < 8) {
+      errors.password = "Password must be at least 8 characters long";
+    } else if (!/[0-9]/.test(regPassword) && !/[^a-zA-Z0-9]/.test(regPassword)) {
+      errors.password = "Password must include at least one number or symbol";
+    }
+
+    if (!regConfirmPassword) {
+      errors.confirmPassword = "Please confirm your password";
+    } else if (regPassword !== regConfirmPassword) {
+      errors.confirmPassword = "Passwords do not match";
+    }
+
+    setRegErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateLoginForm()) {
+      toast.error("Please correct the errors in the login form.");
+      return;
+    }
+
     setLoginLoading(true);
     const res = await api.auth.login({
-      email: loginEmail,
+      email: loginEmail.trim(),
       password: loginPassword,
     });
     setLoginLoading(false);
@@ -145,25 +260,26 @@ function AuthPage() {
       router.navigate({ to: targetHome as never });
     } else {
       toast.error(res.error || "Invalid credentials.");
+      setLoginErrors((prev) => ({ ...prev, password: res.error || "Invalid credentials." }));
     }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (regPassword.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+    if (!validateRegisterForm()) {
+      toast.error("Please fill in all required registration fields properly.");
       return;
     }
 
     setRegLoading(true);
     const res = await api.auth.register({
-      email: regEmail,
+      email: regEmail.trim(),
       password: regPassword,
       role: regRole,
-      fullName: regFullName,
-      businessName: regBusinessName,
-      phone: regPhone,
-      locationName: regLocation,
+      fullName: regFullName.trim(),
+      businessName: regBusinessName.trim(),
+      phone: regPhone.trim(),
+      locationName: regLocation.trim(),
     });
     setRegLoading(false);
 
@@ -171,7 +287,7 @@ function AuthPage() {
       const user = res.data.user as { role: Role };
       setRole(user.role);
       await refreshLiveState();
-      toast.success(`Account registered successfully as ${user.role}!`);
+      toast.success(`Account registered successfully as verified ${user.role}!`);
       const targetHome =
         regRole === "farmer"
           ? "/dashboard/farmer"
@@ -180,13 +296,18 @@ function AuthPage() {
             : "/dashboard/transporter";
       router.navigate({ to: targetHome as never });
     } else {
-      toast.error(res.error || "Registration failed.");
+      const errMsg = res.error || "Registration failed.";
+      toast.error(errMsg);
+      if (errMsg.toLowerCase().includes("email")) {
+        setRegErrors((prev) => ({ ...prev, email: errMsg }));
+      }
     }
   };
 
   const handleDemoSwitch = async (role: Role) => {
-    const res = await api.auth.switchDemoRole(role);
+    await api.auth.switchDemoRole(role);
     setRole(role);
+    await refreshLiveState();
     toast.success(`Switched to demo role: ${role}`);
     const home =
       role === "farmer"
@@ -214,13 +335,16 @@ function AuthPage() {
           Agrolink Access & Identity
         </h1>
         <p className="mx-auto mt-2 max-w-xl text-sm sm:text-base text-muted-foreground">
-          Real enterprise authentication with custom cryptographic password hashing and role-based
-          escrow access.
+          Verified agricultural trade network with direct Supabase PostgreSQL persistence and role-based escrow access.
         </p>
       </motion.div>
 
       <div className="mt-8">
-        <Tabs defaultValue={IS_DEMO_MODE ? "demo" : "login"} className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={(val) => setActiveTab(val as "login" | "register" | "demo")}
+          className="w-full"
+        >
           <div className="flex justify-center">
             <TabsList
               className={cn("grid w-full max-w-md", IS_DEMO_MODE ? "grid-cols-3" : "grid-cols-2")}
@@ -231,14 +355,14 @@ function AuthPage() {
             </TabsList>
           </div>
 
-          {/* TAB 1: 1-Click Quick Demo Switcher (Only visible in Demo Mode) */}
+          {/* TAB 1: 1-Click Quick Demo Switcher (Only visible in Demo Mode, No Admin) */}
           {IS_DEMO_MODE && (
             <TabsContent value="demo" className="mt-8">
               <motion.div
                 initial="hidden"
                 animate="visible"
                 variants={staggerContainer}
-                className="grid gap-5 sm:grid-cols-2"
+                className="grid gap-5 sm:grid-cols-3"
               >
                 {demoRoles.map((r) => (
                   <motion.div key={r.role} variants={fadeInUp}>
@@ -248,29 +372,30 @@ function AuthPage() {
                     >
                       <div>
                         <div className="flex items-start justify-between gap-3 border-b pb-3.5">
-                          <div className="flex items-center gap-3">
-                            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-foreground">
-                              <r.icon className="size-5" aria-hidden />
-                            </span>
-                            <div>
-                              <h2 className="font-display text-lg font-bold capitalize">
-                                {r.role}
-                              </h2>
-                              <p className="text-xs text-muted-foreground">{r.name}</p>
-                            </div>
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                              {r.role}
+                            </p>
+                            <h2 className="mt-0.5 font-display text-base font-bold text-foreground">
+                              {r.name}
+                            </h2>
                           </div>
+                          <span className="grid size-9 place-items-center rounded-xl bg-background/80 text-foreground shadow-xs">
+                            <r.icon className="size-4" aria-hidden />
+                          </span>
                         </div>
-                        <p className="mt-3.5 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                        <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
                           {r.blurb}
                         </p>
                       </div>
 
                       <Button
-                        className="mt-6 w-full font-bold shadow-xs transition-transform hover:scale-[1.02]"
                         onClick={() => handleDemoSwitch(r.role)}
+                        className="mt-5 w-full font-bold shadow-xs cursor-pointer"
+                        size="sm"
                       >
-                        Instant Sign In as {r.role}
-                        <ArrowRight className="ml-1.5 size-4" />
+                        Enter as {r.role}
+                        <ArrowRight className="ml-1.5 size-3.5" aria-hidden />
                       </Button>
                     </LiquidCard>
                   </motion.div>
@@ -279,121 +404,243 @@ function AuthPage() {
             </TabsContent>
           )}
 
-          {/* TAB 2: Sign In with Real Credentials */}
+          {/* TAB 2: Live Sign In Form */}
           <TabsContent value="login" className="mt-8">
-            <Card className="mx-auto max-w-md p-6 shadow-[var(--shadow-card)]">
-              <h2 className="font-display text-xl font-bold">Sign In with Credentials</h2>
-              <p className="text-xs text-muted-foreground">
-                Enter your registered email address and secure password
+            <Card className="mx-auto max-w-md p-6 sm:p-8 shadow-[var(--shadow-card)]">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="size-5 text-primary" />
+                <h2 className="font-display text-xl font-bold">Sign In to Agrolink</h2>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Access your verified produce listings, escrow settlements, and live deliveries.
               </p>
 
-              <form onSubmit={handleLogin} className="mt-5 space-y-4">
+              <form onSubmit={handleLogin} className="mt-6 space-y-4">
+                {/* Email Address */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="loginEmail">Email Address</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="loginEmail" className="text-xs font-bold">
+                      Email Address *
+                    </Label>
+                    {loginErrors.email && (
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-destructive">
+                        <AlertCircle className="size-3" />
+                        {loginErrors.email}
+                      </span>
+                    )}
+                  </div>
                   <div className="relative">
                     <Input
                       id="loginEmail"
                       type="email"
-                      placeholder="e.g. abdul@agrolink.ng"
+                      placeholder="name@company.ng"
                       value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
+                      onChange={(e) => {
+                        setLoginEmail(e.target.value);
+                        if (loginErrors.email) clearLoginError("email");
+                      }}
+                      className={cn(
+                        "pl-9 transition-colors",
+                        loginErrors.email && "border-destructive focus-visible:ring-destructive",
+                      )}
                       required
-                      className="pl-9"
                     />
                     <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                   </div>
                 </div>
 
+                {/* Password */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="loginPw">Password</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="loginPw" className="text-xs font-bold">
+                      Password *
+                    </Label>
+                    {loginErrors.password && (
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-destructive">
+                        <AlertCircle className="size-3" />
+                        {loginErrors.password}
+                      </span>
+                    )}
+                  </div>
                   <div className="relative">
                     <Input
                       id="loginPw"
-                      type="password"
+                      type={showLoginPassword ? "text" : "password"}
                       placeholder="••••••••"
                       value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
+                      onChange={(e) => {
+                        setLoginPassword(e.target.value);
+                        if (loginErrors.password) clearLoginError("password");
+                      }}
+                      className={cn(
+                        "pl-9 pr-10 transition-colors",
+                        loginErrors.password && "border-destructive focus-visible:ring-destructive",
+                      )}
                       required
-                      className="pl-9"
                     />
                     <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <button
+                      type="button"
+                      onClick={() => setShowLoginPassword(!showLoginPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      {showLoginPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
                   </div>
                 </div>
 
                 <Button
                   type="submit"
                   disabled={loginLoading}
-                  className="w-full font-bold shadow-xs transition-transform hover:scale-[1.01]"
+                  className="w-full font-bold shadow-xs cursor-pointer transition-transform hover:scale-[1.01]"
                 >
-                  {loginLoading ? "Authenticating..." : "Sign In to Account"}
+                  {loginLoading ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Signing In...
+                    </>
+                  ) : (
+                    <>
+                      Sign In to Account
+                      <ArrowRight className="ml-1.5 size-4" />
+                    </>
+                  )}
                 </Button>
-
-                <p className="text-center text-[11px] text-muted-foreground pt-2">
-                  Demo account password: <span className="font-mono font-bold">Agrolink@2026</span>
-                </p>
               </form>
             </Card>
           </TabsContent>
 
-          {/* TAB 3: Real Client Registration */}
+          {/* TAB 3: Real Client Registration Form */}
           <TabsContent value="register" className="mt-8">
-            <Card className="mx-auto max-w-xl p-6 shadow-[var(--shadow-card)]">
-              <h2 className="font-display text-xl font-bold">Register Client Account</h2>
-              <p className="text-xs text-muted-foreground">
-                Join the verified agricultural trade network
+            <Card className="mx-auto max-w-xl p-6 sm:p-8 shadow-[var(--shadow-card)]">
+              <div className="flex items-center gap-2">
+                <Building2 className="size-5 text-primary" />
+                <h2 className="font-display text-xl font-bold">Register Client Account</h2>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Join the verified agricultural trade network with real database profile persistence.
               </p>
 
-              <form onSubmit={handleRegister} className="mt-5 space-y-4">
-                <div className="grid grid-cols-2 gap-3">
+              <form onSubmit={handleRegister} className="mt-6 space-y-4">
+                {/* Row 1: Full Name & Business Name */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="regName">Full Legal Name *</Label>
-                    <Input
-                      id="regName"
-                      placeholder="e.g. Alhaji Abdul Ibrahim"
-                      value={regFullName}
-                      onChange={(e) => setRegFullName(e.target.value)}
-                      required
-                    />
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="regName" className="text-xs font-bold">
+                        Full Legal Name *
+                      </Label>
+                      {regErrors.fullName && (
+                        <span className="text-[10px] text-destructive font-medium">
+                          {regErrors.fullName}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="regName"
+                        placeholder="e.g. Alhaji Abdul Ibrahim"
+                        value={regFullName}
+                        onChange={(e) => {
+                          setRegFullName(e.target.value);
+                          if (regErrors.fullName) clearRegError("fullName");
+                        }}
+                        className={cn("pl-9", regErrors.fullName && "border-destructive")}
+                        required
+                      />
+                      <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
                   </div>
+
                   <div className="space-y-1.5">
-                    <Label htmlFor="regBiz">Business / Farm Name *</Label>
-                    <Input
-                      id="regBiz"
-                      placeholder="e.g. Abdul Integrated Farms"
-                      value={regBusinessName}
-                      onChange={(e) => setRegBusinessName(e.target.value)}
-                      required
-                    />
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="regBiz" className="text-xs font-bold">
+                        Business / Farm Name *
+                      </Label>
+                      {regErrors.businessName && (
+                        <span className="text-[10px] text-destructive font-medium">
+                          {regErrors.businessName}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="regBiz"
+                        placeholder="e.g. Abdul Integrated Farms"
+                        value={regBusinessName}
+                        onChange={(e) => {
+                          setRegBusinessName(e.target.value);
+                          if (regErrors.businessName) clearRegError("businessName");
+                        }}
+                        className={cn("pl-9", regErrors.businessName && "border-destructive")}
+                        required
+                      />
+                      <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {/* Row 2: Email & Phone Number */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="regEmail">Email Address *</Label>
-                    <Input
-                      id="regEmail"
-                      type="email"
-                      placeholder="name@company.ng"
-                      value={regEmail}
-                      onChange={(e) => setRegEmail(e.target.value)}
-                      required
-                    />
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="regEmail" className="text-xs font-bold">
+                        Email Address *
+                      </Label>
+                      {regErrors.email && (
+                        <span className="text-[10px] text-destructive font-medium">
+                          {regErrors.email}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="regEmail"
+                        type="email"
+                        placeholder="name@company.ng"
+                        value={regEmail}
+                        onChange={(e) => {
+                          setRegEmail(e.target.value);
+                          if (regErrors.email) clearRegError("email");
+                        }}
+                        className={cn("pl-9", regErrors.email && "border-destructive")}
+                        required
+                      />
+                      <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
                   </div>
+
                   <div className="space-y-1.5">
-                    <Label htmlFor="regPhone">Phone Number *</Label>
-                    <Input
-                      id="regPhone"
-                      placeholder="+234 803 123 4567"
-                      value={regPhone}
-                      onChange={(e) => setRegPhone(e.target.value)}
-                      required
-                    />
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="regPhone" className="text-xs font-bold">
+                        Phone Number *
+                      </Label>
+                      {regErrors.phone && (
+                        <span className="text-[10px] text-destructive font-medium">
+                          {regErrors.phone}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="regPhone"
+                        placeholder="+234 803 123 4567"
+                        value={regPhone}
+                        onChange={(e) => {
+                          setRegPhone(e.target.value);
+                          if (regErrors.phone) clearRegError("phone");
+                        }}
+                        className={cn("pl-9", regErrors.phone && "border-destructive")}
+                        required
+                      />
+                      <Phone className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {/* Row 3: Supply Chain Role & Location */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>Supply Chain Role *</Label>
+                    <Label className="text-xs font-bold">Supply Chain Role *</Label>
                     <Select
                       value={regRole}
                       onValueChange={(v: "farmer" | "buyer" | "transporter") => setRegRole(v)}
@@ -408,36 +655,127 @@ function AuthPage() {
                       </SelectContent>
                     </Select>
                   </div>
+
                   <div className="space-y-1.5">
-                    <Label htmlFor="regLoc">Location (State / City) *</Label>
-                    <Input
-                      id="regLoc"
-                      placeholder="e.g. Kano State"
-                      value={regLocation}
-                      onChange={(e) => setRegLocation(e.target.value)}
-                      required
-                    />
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="regLoc" className="text-xs font-bold">
+                        Location (State / City) *
+                      </Label>
+                      {regErrors.location && (
+                        <span className="text-[10px] text-destructive font-medium">
+                          {regErrors.location}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="regLoc"
+                        placeholder="e.g. Kano (Dawanau Agrarian Belt)"
+                        value={regLocation}
+                        onChange={(e) => {
+                          setRegLocation(e.target.value);
+                          if (regErrors.location) clearRegError("location");
+                        }}
+                        className={cn("pl-9", regErrors.location && "border-destructive")}
+                        required
+                      />
+                      <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="regPw">Password (Min 8 characters) *</Label>
-                  <Input
-                    id="regPw"
-                    type="password"
-                    placeholder="Create a strong password"
-                    value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
-                    required
-                  />
+                {/* Row 4: Password & Confirm Password */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="regPw" className="text-xs font-bold">
+                        Password (Min 8 chars) *
+                      </Label>
+                      {regErrors.password && (
+                        <span className="text-[10px] text-destructive font-medium">
+                          {regErrors.password}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="regPw"
+                        type={showRegPassword ? "text" : "password"}
+                        placeholder="Create strong password"
+                        value={regPassword}
+                        onChange={(e) => {
+                          setRegPassword(e.target.value);
+                          if (regErrors.password) clearRegError("password");
+                        }}
+                        className={cn("pl-9 pr-10", regErrors.password && "border-destructive")}
+                        required
+                      />
+                      <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        {showRegPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="regConfirmPw" className="text-xs font-bold">
+                        Confirm Password *
+                      </Label>
+                      {regErrors.confirmPassword && (
+                        <span className="text-[10px] text-destructive font-medium">
+                          {regErrors.confirmPassword}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="regConfirmPw"
+                        type={showRegPassword ? "text" : "password"}
+                        placeholder="Re-enter password"
+                        value={regConfirmPassword}
+                        onChange={(e) => {
+                          setRegConfirmPassword(e.target.value);
+                          if (regErrors.confirmPassword) clearRegError("confirmPassword");
+                        }}
+                        className={cn("pl-9 pr-10", regErrors.confirmPassword && "border-destructive")}
+                        required
+                      />
+                      <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground space-y-1 border">
+                  <div className="flex items-center gap-1.5 font-bold text-foreground">
+                    <CheckCircle2 className="size-3.5 text-primary" />
+                    Automatic Trust Profile Provisioning
+                  </div>
+                  <p>
+                    Your profile will be saved to Supabase with an initial Tier-1 KYB status and an 80-point trust score.
+                  </p>
                 </div>
 
                 <Button
                   type="submit"
                   disabled={regLoading}
-                  className="w-full font-bold shadow-xs transition-transform hover:scale-[1.01]"
+                  className="w-full font-bold shadow-xs cursor-pointer transition-transform hover:scale-[1.01]"
                 >
-                  {regLoading ? "Creating Account..." : "Complete Registration & Sign In"}
+                  {regLoading ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Creating Account & Syncing Database...
+                    </>
+                  ) : (
+                    <>
+                      Complete Registration & Sign In
+                      <ArrowRight className="ml-1.5 size-4" />
+                    </>
+                  )}
                 </Button>
               </form>
             </Card>

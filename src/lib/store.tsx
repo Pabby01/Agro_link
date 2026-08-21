@@ -221,6 +221,32 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         produce: mappedProduce,
       }));
     }
+
+    // Fetch Live Orders
+    try {
+      const ordersRes = await api.orders.list();
+      if (ordersRes.success && Array.isArray(ordersRes.data)) {
+        setState((s) => ({
+          ...s,
+          orders: ordersRes.data as Order[],
+        }));
+      }
+    } catch {
+      // continue
+    }
+
+    // Fetch Live Logistics / Deliveries
+    try {
+      const delRes = await api.logistics.list();
+      if (delRes.success && Array.isArray(delRes.data)) {
+        setState((s) => ({
+          ...s,
+          deliveries: delRes.data as Delivery[],
+        }));
+      }
+    } catch {
+      // continue
+    }
   }, []);
 
   useEffect(() => {

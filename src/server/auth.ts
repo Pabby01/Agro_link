@@ -1,10 +1,11 @@
 // =============================================================================
 // AGROLINK BACKEND AUTH CONTROLLER
-// Registration, Login, Session Management, and Role Verification
+// Registration, Login, Session Management, and Direct Database Sync
 // =============================================================================
 
 import { db, type DBUser, type DBSession } from "./db";
 import { generateSalt, hashPassword, verifyPassword, generateSessionToken } from "./crypto";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
 
 export interface AuthResponse {
   user: Omit<DBUser, "password_hash" | "password_salt">;
@@ -14,7 +15,7 @@ export interface AuthResponse {
 
 export class AuthController {
   /**
-   * Register a new user with cryptographic password hashing
+   * Register a new user with cryptographic password hashing and database sync
    */
   static async register(data: {
     email: string;
@@ -30,10 +31,27 @@ export class AuthController {
   }): Promise<{ success: boolean; data?: AuthResponse; error?: string }> {
     const cleanEmail = data.email.trim().toLowerCase();
 
-    // Check duplicate
+    // 1. Check duplicate in memory
     for (const u of db.users.values()) {
       if (u.email.toLowerCase() === cleanEmail) {
         return { success: false, error: "An account with this email already exists." };
+      }
+    }
+
+    // 2. Check duplicate in Supabase
+    if (supabase && isSupabaseConfigured) {
+      try {
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("id")
+          .ilike("email", cleanEmail)
+          .maybeSingle();
+
+        if (existingUser) {
+          return { success: false, error: "An account with this email already exists in the database." };
+        }
+      } catch {
+        // continue
       }
     }
 
@@ -77,11 +95,10 @@ export class AuthController {
 
     db.users.set(newUser.id, newUser);
 
-    // Create Initial Trust Profile
-    db.trustProfiles.set(newUser.id, {
+    const initialTrust = {
       user_id: newUser.id,
       score: 80,
-      level: "New",
+      level: "New" as const,
       rating: 5.0,
       completed_transactions: 0,
       successful_deliveries: 0,
@@ -97,7 +114,41 @@ export class AuthController {
         },
       ],
       updated_at: new Date().toISOString(),
-    });
+    };
+
+    // Create Initial Trust Profile in DB
+    db.trustProfiles.set(newUser.id, initialTrust);
+
+    // Sync to Supabase directly
+    if (supabase && isSupabaseConfigured) {
+      try {
+        await supabase.from("users").upsert({
+          id: newUser.id,
+          email: newUser.email,
+          role: newUser.role,
+          full_name: newUser.full_name,
+          business_name: newUser.business_name,
+          phone: newUser.phone,
+          location_name: newUser.location_name,
+          latitude: newUser.latitude,
+          longitude: newUser.longitude,
+          avatar_initials: newUser.avatar_initials,
+          bio: newUser.bio,
+          kyb_tier: newUser.kyb_tier,
+          is_verified: newUser.is_verified,
+          is_active: newUser.is_active,
+          is_flagged: newUser.is_flagged,
+          password_hash: newUser.password_hash,
+          password_salt: newUser.password_salt,
+          created_at: newUser.created_at,
+          updated_at: newUser.updated_at,
+        });
+
+        await supabase.from("trust_profiles").upsert(initialTrust);
+      } catch (err) {
+        console.warn("Supabase user insert notice:", err);
+      }
+    }
 
     // Create Session
     const sessionToken = generateSessionToken();
@@ -138,10 +189,29 @@ export class AuthController {
     const cleanEmail = data.email.trim().toLowerCase();
     let foundUser: DBUser | undefined;
 
+    // 1. Search in-memory DB
     for (const u of db.users.values()) {
       if (u.email.toLowerCase() === cleanEmail) {
         foundUser = u;
         break;
+      }
+    }
+
+    // 2. Fallback to Supabase Database
+    if (!foundUser && supabase && isSupabaseConfigured) {
+      try {
+        const { data: suUser } = await supabase
+          .from("users")
+          .select("*")
+          .ilike("email", cleanEmail)
+          .maybeSingle();
+
+        if (suUser) {
+          foundUser = suUser as DBUser;
+          db.users.set(foundUser.id, foundUser);
+        }
+      } catch {
+        // continue
       }
     }
 
