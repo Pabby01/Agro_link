@@ -119,7 +119,7 @@ function TransporterDashboard() {
       onSectionChange={setActiveSection}
       headerActions={
         <div className="flex flex-wrap items-center gap-2">
-          <KYBVerificationModal currentTier={3} isVerified={transporter.verified} />
+          <KYBVerificationModal currentTier={3} isVerified={trust?.verified ?? true} />
           <Badge
             variant="outline"
             className="text-emerald-600 border-emerald-500/40 bg-emerald-500/10 py-1 px-2.5 text-xs font-semibold"
@@ -214,7 +214,7 @@ function TransporterDashboard() {
                         <Button
                           size="sm"
                           onClick={() => {
-                            acceptDelivery(job.id, transporterId);
+                            acceptDelivery(job.id);
                             toast.success("Delivery contract accepted! Assigned to your fleet.");
                             setActiveSection("active-runs");
                           }}
@@ -286,7 +286,7 @@ function TransporterDashboard() {
                       size="sm"
                       className="w-full font-bold shadow-xs"
                       onClick={() => {
-                        acceptDelivery(job.id, transporterId);
+                        acceptDelivery(job.id);
                         toast.success("Delivery contract accepted!");
                         setActiveSection("active-runs");
                       }}
@@ -353,9 +353,9 @@ function TransporterDashboard() {
                       <div className="flex items-center gap-2">
                         {delivery.status === "Accepted" && (
                           <ProofOfPickupModal
-                            deliveryId={delivery.id}
-                            farmerName={farmer?.name || "Farmer"}
-                            produceQuantityKg={relatedOrder?.quantityKg || 1000}
+                            shipmentId={delivery.id}
+                            orderQuantityKg={relatedOrder?.quantityKg || 1000}
+                            pickupLocation={delivery.pickup.label}
                             onSuccess={() => {
                               setDeliveryStatus(delivery.id, "Picked Up");
                               if (relatedOrder) setOrderStatus(relatedOrder.id, "In Transit");
@@ -382,16 +382,17 @@ function TransporterDashboard() {
                           <ProofOfDeliveryModal
                             shipmentId={delivery.id}
                             orderQuantityKg={relatedOrder?.quantityKg || 1000}
-                            expectedOtp={relatedOrder?.otpCode || "849201"}
+                            expectedOtp="849201"
                             onSuccess={({ hasDiscrepancy }) => {
                               setDeliveryStatus(delivery.id, "Delivered");
                               if (relatedOrder) {
-                                setOrderStatus(
-                                  relatedOrder.id,
-                                  hasDiscrepancy ? "Disputed" : "Delivered",
-                                );
+                                setOrderStatus(relatedOrder.id, "Delivered");
                               }
-                              toast.success("Delivery completed and recorded!");
+                              toast.success(
+                                hasDiscrepancy
+                                  ? "Delivery recorded with shortage discrepancy"
+                                  : "Delivery completed and recorded!",
+                              );
                             }}
                           />
                         )}

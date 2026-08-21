@@ -2,10 +2,11 @@ import { ShieldCheck, CheckCircle2, TrendingUp, AlertTriangle, Star, History } f
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrustScoreService } from "@/features/trust/TrustScoreService";
-import type { TrustProfile } from "@/types/domain";
+import type { TrustProfile as DomainTrustProfile } from "@/types/domain";
+import type { TrustProfile as StoreTrustProfile } from "@/lib/types";
 
 interface TrustBreakdownCardProps {
-  trustProfile: TrustProfile;
+  trustProfile: DomainTrustProfile | StoreTrustProfile;
   className?: string;
 }
 
@@ -66,7 +67,7 @@ export function TrustBreakdownCard({ trustProfile, className }: TrustBreakdownCa
             CAC / Business Identity Verification
           </span>
           <span className="font-mono font-bold text-emerald-600">
-            {trustProfile.isVerified
+            {("isVerified" in trustProfile ? trustProfile.isVerified : trustProfile.verified)
               ? `+${TrustScoreService.VERIFICATION_BONUS}`
               : "+0 (Unverified)"}
           </span>
@@ -124,30 +125,29 @@ export function TrustBreakdownCard({ trustProfile, className }: TrustBreakdownCa
             Recent Reputation Activity
           </div>
           <ul className="space-y-1.5">
-            {trustProfile.history.slice(0, 3).map((e) => (
-              <li
-                key={e.id}
-                className="flex items-center justify-between rounded-lg bg-muted/40 px-2.5 py-1.5 text-[11px]"
-              >
-                <span className="text-muted-foreground">{e.reason}</span>
-                <span
-                  className={`font-mono font-bold ${
-                    e.scoreDelta > 0
-                      ? "text-emerald-600"
-                      : e.scoreDelta < 0
-                        ? "text-destructive"
-                        : "text-muted-foreground"
-                  }`}
+            {trustProfile.history.slice(0, 3).map((e, idx) => {
+              const delta = "scoreDelta" in e ? e.scoreDelta : e.score >= 80 ? 2 : 0;
+              const eventKey = "id" in e ? e.id : `hist-${idx}`;
+              return (
+                <li
+                  key={eventKey}
+                  className="flex items-center justify-between rounded-lg bg-muted/40 px-2.5 py-1.5 text-[11px]"
                 >
-                  {e.scoreDelta > 0
-                    ? `+${e.scoreDelta}`
-                    : e.scoreDelta === 0
-                      ? "0"
-                      : `${e.scoreDelta}`}{" "}
-                  pts
-                </span>
-              </li>
-            ))}
+                  <span className="text-muted-foreground">{e.reason}</span>
+                  <span
+                    className={`font-mono font-bold ${
+                      delta > 0
+                        ? "text-emerald-600"
+                        : delta < 0
+                          ? "text-destructive"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {delta > 0 ? `+${delta}` : delta === 0 ? "0" : `${delta}`} pts
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

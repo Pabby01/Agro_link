@@ -131,7 +131,7 @@ function BuyerDashboard() {
       onSectionChange={setActiveSection}
       headerActions={
         <div className="flex flex-wrap items-center gap-2">
-          <KYBVerificationModal currentTier={2} isVerified={buyer.verified} />
+          <KYBVerificationModal currentTier={2} isVerified={trust?.verified ?? true} />
           <Button asChild size="sm" className="font-semibold shadow-xs">
             <Link to="/marketplace">
               <ShoppingBasket className="mr-1.5 size-4" />

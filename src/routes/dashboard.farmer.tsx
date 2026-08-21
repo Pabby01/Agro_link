@@ -125,7 +125,7 @@ function FarmerDashboard() {
       onSectionChange={setActiveSection}
       headerActions={
         <div className="flex flex-wrap items-center gap-2">
-          <KYBVerificationModal currentTier={2} isVerified={"isVerified" in farmer ? farmer.isVerified : farmer.verified} />
+          <KYBVerificationModal currentTier={2} isVerified={trust?.verified ?? true} />
           <ProduceUploadModal />
         </div>
       }
@@ -452,7 +452,7 @@ function FarmerDashboard() {
                 Your reputation metrics, fulfillment track record, and CAC verification
               </p>
             </div>
-            <KYBVerificationModal currentTier={2} isVerified={"isVerified" in farmer ? farmer.isVerified : farmer.verified} />
+            <KYBVerificationModal currentTier={2} isVerified={trust?.verified ?? true} />
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
