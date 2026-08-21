@@ -9,6 +9,7 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "test": "npx tsx src/tests/domain.test.ts",
+    "db:seed": "node scripts/seed-supabase.mjs",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
