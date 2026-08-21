@@ -23,7 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { api } from "@/lib/api-client";
+import { uploadImage } from "@/lib/storage";
 import type { NigerianLanguage, CropDiagnosis } from "@/types/domain";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -286,27 +287,35 @@ export function CropScanner({ onListingCreated }: { onListingCreated?: () => voi
     };
   };
 
-  const handleCustomUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCustomUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setCustomImage(dataUrl);
-      const customSample: PresetSample = {
-        ...DEFAULT_SAMPLE,
-        id: `custom-${Date.now()}`,
-        name: "User Harvest Photo",
-        crop: "Field Sample",
-        image: dataUrl,
-      };
-      runAnalysis(customSample);
+    // Fast preview
+    const localUrl = URL.createObjectURL(file);
+    setCustomImage(localUrl);
+
+    const customSample: PresetSample = {
+      ...DEFAULT_SAMPLE,
+      id: `custom-${Date.now()}`,
+      name: file.name.replace(/\.[^/.]+$/, ""),
+      crop: "Harvest Crop Sample",
+      image: localUrl,
     };
-    reader.readAsDataURL(file);
+    runAnalysis(customSample);
+
+    // Upload to Supabase Storage in background
+    try {
+      const uploadRes = await uploadImage(file, "diagnostics");
+      if (uploadRes.success && uploadRes.url) {
+        setCustomImage(uploadRes.url);
+      }
+    } catch {
+      // preview continues working
+    }
   };
 
-  const handleAskQuestion = (e: React.FormEvent) => {
+  const handleAskQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     const q = chatInput.trim();
     if (!q || chatLoading) return;
@@ -322,37 +331,56 @@ export function CropScanner({ onListingCreated }: { onListingCreated?: () => voi
     setChatInput("");
     setChatLoading(true);
 
-    setTimeout(() => {
-      let aiReply = "";
-      const lower = q.toLowerCase();
-
-      if (lower.includes("first") || lower.includes("what should i do")) {
-        aiReply =
-          language === "yo"
-            ? "Ohun àkọ́kọ́ ni láti bẹ́ àwọn ewé tó ti bàjẹ́ kúrò ní kété kí o sì sun wọ́n, kí àrùn má ba tan sí àwọn igi tókù."
-            : language === "ha"
-              ? "Abu na farko shine a cire ganyen da suka kamu a kona su domin hana cutar yaduwa zuwa sauran shuke-shuke."
-              : language === "ig"
-                ? "Ihe mbụ ị ga-eme bụ ibipụ akwụkwọ ndị ọrịa metụtara ma kpọọ ha ọkụ ka ọrịa ahụ ghara iru ndị ọzọ."
-                : "Your immediate first step is to prune heavily infected leaves and safely dispose of them outside the field to halt spore dispersal.";
-      } else if (lower.includes("yield") || lower.includes("harvest") || lower.includes("market")) {
-        aiReply =
-          "Prompt removal of affected foliage prevents root decay. You can expect to preserve 85–90% of your commercial harvest volume for the Agrolink marketplace.";
-      } else {
-        aiReply = `Based on our AI field models for ${selectedSample.crop}, applying recommended bio-fungicides and spacing foliage immediately protects remaining healthy plants. You can list the healthy harvest directly on Agrolink.`;
+    try {
+      const res = await api.ai.query({ prompt: q, role: "farmer" });
+      if (res.success && res.data?.answer) {
+        const answerText = res.data.answer;
+        const suggestionText = res.data.suggestion ? `\n\n💡 Advice: ${res.data.suggestion}` : "";
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: `ai-${Date.now()}`,
+            sender: "ai",
+            text: answerText + suggestionText,
+            time: "Just now",
+          },
+        ]);
+        setChatLoading(false);
+        return;
       }
+    } catch {
+      // fallback to multilingual responses
+    }
 
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: `ai-${Date.now()}`,
-          sender: "ai",
-          text: aiReply,
-          time: "Just now",
-        },
-      ]);
-      setChatLoading(false);
-    }, 600);
+    let aiReply = "";
+    const lower = q.toLowerCase();
+
+    if (lower.includes("first") || lower.includes("what should i do")) {
+      aiReply =
+        language === "yo"
+          ? "Ohun àkọ́kọ́ ni láti bẹ́ àwọn ewé tó ti bàjẹ́ kúrò ní kété kí o sì sun wọ́n, kí àrùn má ba tan sí àwọn igi tókù."
+          : language === "ha"
+            ? "Abu na farko shine a cire ganyen da suka kamu a kona su domin hana cutar yaduwa zuwa sauran shuke-shuke."
+            : language === "ig"
+              ? "Ihe mbụ ị ga-eme bụ ibipụ akwụkwọ ndị ọrịa metụtara ma kpọọ ha ọkụ ka ọrịa ahụ ghara iru ndị ọzọ."
+              : "Your immediate first step is to prune heavily infected leaves and safely dispose of them outside the field to halt spore dispersal.";
+    } else if (lower.includes("yield") || lower.includes("harvest") || lower.includes("market")) {
+      aiReply =
+        "Prompt removal of affected foliage prevents root decay. You can expect to preserve 85–90% of your commercial harvest volume for the Agrolink marketplace.";
+    } else {
+      aiReply = `Based on our AI field models for ${selectedSample.crop}, applying recommended bio-fungicides and spacing foliage immediately protects remaining healthy plants. You can list the healthy harvest directly on Agrolink.`;
+    }
+
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        id: `ai-${Date.now()}`,
+        sender: "ai",
+        text: aiReply,
+        time: "Just now",
+      },
+    ]);
+    setChatLoading(false);
   };
 
   const activeTranslation =

@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ImageUploader } from "@/components/common/ImageUploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -164,21 +165,12 @@ export function ProofOfDeliveryModal({
             </div>
           )}
 
-          {/* Evidence photo */}
-          <div className="space-y-1.5">
-            <Label htmlFor="podEvidenceUrl">Delivery Note / Scale Receipt URL</Label>
-            <div className="relative">
-              <Input
-                id="podEvidenceUrl"
-                type="url"
-                value={evidenceUrl}
-                onChange={(e) => setEvidenceUrl(e.target.value)}
-                placeholder="https://..."
-                className="pl-9"
-              />
-              <Camera className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            </div>
-          </div>
+          <ImageUploader
+            value={evidenceUrl}
+            onChange={setEvidenceUrl}
+            label="Delivery Receipt / Inspection Photo"
+            folder="shipments"
+          />
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

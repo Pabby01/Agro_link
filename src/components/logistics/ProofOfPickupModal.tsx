@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ImageUploader } from "@/components/common/ImageUploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -96,20 +97,12 @@ export function ProofOfPickupModal({
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="evidenceUrl">Photo / Weighbridge Receipt URL</Label>
-            <div className="relative">
-              <Input
-                id="evidenceUrl"
-                type="url"
-                value={evidenceUrl}
-                onChange={(e) => setEvidenceUrl(e.target.value)}
-                placeholder="https://..."
-                className="pl-9"
-              />
-              <Camera className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            </div>
-          </div>
+          <ImageUploader
+            value={evidenceUrl}
+            onChange={setEvidenceUrl}
+            label="Weighbridge / Cargo Pickup Photo"
+            folder="shipments"
+          />
 
           <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 p-2.5 text-xs text-emerald-700 dark:text-emerald-400">
             <CheckCircle2 className="size-4 shrink-0" />

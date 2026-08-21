@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ImageUploader } from "@/components/common/ImageUploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -135,20 +136,12 @@ export function DisputeModal({
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="disputeEvidence">Inspection Evidence / Photo URL</Label>
-            <div className="relative">
-              <Input
-                id="disputeEvidence"
-                type="url"
-                value={evidenceUrl}
-                onChange={(e) => setEvidenceUrl(e.target.value)}
-                placeholder="https://..."
-                className="pl-9"
-              />
-              <UploadCloud className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            </div>
-          </div>
+          <ImageUploader
+            value={evidenceUrl}
+            onChange={setEvidenceUrl}
+            label="Inspection Photo / Evidence of Damage or Shortage"
+            folder="disputes"
+          />
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

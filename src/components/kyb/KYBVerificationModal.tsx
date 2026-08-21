@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { ImageUploader } from "@/components/common/ImageUploader";
 import { api } from "@/lib/api-client";
 import { toast } from "sonner";
 
@@ -177,15 +178,12 @@ export function KYBVerificationModal({
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="docUrl">CAC Certificate / Document Upload URL</Label>
-            <Input
-              id="docUrl"
-              placeholder="https://.../cac_cert.pdf (or Supabase Storage document URL)"
-              value={cacDocUrl}
-              onChange={(e) => setCacDocUrl(e.target.value)}
-            />
-          </div>
+          <ImageUploader
+            value={cacDocUrl}
+            onChange={setCacDocUrl}
+            label="CAC Certificate / Title Document Photo"
+            folder="kyb"
+          />
 
           <div className="flex justify-end gap-2 pt-3 border-t">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

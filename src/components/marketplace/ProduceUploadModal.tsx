@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ImageUploader } from "@/components/common/ImageUploader";
 import { api } from "@/lib/api-client";
 import { toast } from "sonner";
 
@@ -225,15 +226,12 @@ export function ProduceUploadModal({ onSuccess, trigger }: ProduceUploadModalPro
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="img">Produce Image URL</Label>
-            <Input
-              id="img"
-              placeholder="https://... (or upload to Supabase Storage)"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-            />
-          </div>
+          <ImageUploader
+            value={imageUrl}
+            onChange={setImageUrl}
+            label="Produce Photo (Supabase Storage)"
+            folder="produce"
+          />
 
           <div className="space-y-1.5">
             <Label htmlFor="desc">Batch Notes & Harvest Details</Label>
