@@ -8,22 +8,32 @@ import { nitro } from "nitro/vite";
 export default defineConfig(({ command }) => ({
   plugins: [
     tailwindcss(),
-    tsConfigPaths({ projects: ["./tsconfig.json"] }),
-    tanstackStart({
-      server: { entry: "server" },
+
+    tsConfigPaths({
+      projects: ["./tsconfig.json"],
     }),
+
+    tanstackStart({
+      server: {
+        entry: "server",
+      },
+    }),
+
     command === "build"
       ? nitro({
-          preset: "cloudflare-module",
-        })
+        preset: "vercel",
+      })
       : undefined,
+
     viteReact(),
   ].filter(Boolean),
+
   resolve: {
     alias: {
       "@": `${process.cwd()}/src`,
     },
   },
+
   server: {
     host: "::",
     port: 8080,

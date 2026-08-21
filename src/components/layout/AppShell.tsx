@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Link, useRouter } from "@tanstack/react-router";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Bell, Leaf, Menu, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { role, setRole, currentUser, notificationsFor, markNotificationsRead, resetDemo, logout } =
     useApp();
   const router = useRouter();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isDashboard = pathname.startsWith("/dashboard") || pathname.startsWith("/admin");
   const [open, setOpen] = useState(false);
 
   const links = useMemo(() => navFor(role), [role]);
@@ -280,19 +282,21 @@ export function AppShell({ children }: { children: ReactNode }) {
         {children}
       </motion.main>
 
-      <footer className="border-t border-border/70 bg-card/40 mb-16 md:mb-0">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p>
-            © {new Date().getFullYear()} Agrolink — the trusted network moving food from farm to
-            market.
-          </p>
-          <p>
-            {IS_DEMO_MODE
-              ? "Demo Mode Active · Seed data stored in local browser state."
-              : "Live Production Network · Bank-grade Escrow & Tier-2 KYB Compliance."}
-          </p>
-        </div>
-      </footer>
+      {!isDashboard && (
+        <footer className="border-t border-border/70 bg-card/40 mb-16 md:mb-0">
+          <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <p>
+              © {new Date().getFullYear()} Agrolink — the trusted network moving food from farm to
+              market.
+            </p>
+            <p>
+              {IS_DEMO_MODE
+                ? "Demo Mode Active · Seed data stored in local browser state."
+                : "Live Production Network · Bank-grade Escrow & Tier-2 KYB Compliance."}
+            </p>
+          </div>
+        </footer>
+      )}
 
       <MobileNav />
     </div>
