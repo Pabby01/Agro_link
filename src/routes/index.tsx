@@ -140,24 +140,14 @@ function LandingPage() {
               variants={staggerContainer}
               className="space-y-6 rounded-3xl bg-background/60 p-6 sm:p-8 backdrop-blur-xs border border-border/40 shadow-xs"
             >
-              {/* Eyebrow */}
-              <motion.div variants={fadeInUp}>
-                <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-primary shadow-xs">
-                  <span className="size-2 rounded-full bg-primary animate-pulse" />
-                  Agricultural Supply-Chain Network
-                </div>
-              </motion.div>
+
 
               {/* Headline */}
               <motion.h1
                 variants={fadeInUp}
                 className="font-display text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl lg:text-6xl text-balance"
               >
-                The trusted network moving food from{" "}
-                <span className="text-primary underline decoration-gold decoration-wavy decoration-2">
-                  farm to market
-                </span>
-                .
+                The trusted network moving food from farm to market.
               </motion.h1>
 
               {/* Supporting Copy */}
