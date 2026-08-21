@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useRouterState, useRouter } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import {
   Home,
   ShoppingBag,
