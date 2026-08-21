@@ -118,19 +118,34 @@ export class AIIntelligenceController {
   ): Promise<AIQueryResponse | null> {
     const model =
       (typeof process !== "undefined" && process.env["OPENROUTER_MODEL"]) ||
-      "google/gemini-2.5-flash";
+      "google/gemini-2.0-flash-lite-001";
 
-    const systemPrompt = `You are Agrolink AI, an intelligent, authoritative agricultural supply-chain decision-support assistant for Nigerian agribusinesses.
-Your role: Provide grounded, factual, actionable guidance to ${role}s using the following live marketplace data snapshot:
-${JSON.stringify(context, null, 2)}
+    const liveProduce = (context["liveProduce"] as DBProduce[]) || [];
+    const liveDeliveries = (context["liveDeliveries"] as DBDelivery[]) || [];
+    const liveOrders = (context["liveOrders"] as DBOrder[]) || [];
 
-Respond with ONLY a raw JSON object with this exact structure:
+    const compactContext = {
+      activeListings: liveProduce.length,
+      sampleCatalog: liveProduce.slice(0, 5).map((p) => ({
+        name: p.name,
+        pricePerKg: `₦${p.price_per_kg}`,
+        stockKg: p.quantity_kg,
+        location: p.location_name,
+      })),
+      activeDeliveries: liveDeliveries.length,
+      activeOrders: liveOrders.length,
+    };
+
+    const systemPrompt = `You are Agrolink AI, an intelligent agricultural decision assistant for Nigerian agribusinesses.
+Role: ${role}. Keep responses concise, clear, and easy to read (max 2 sentences for answer, max 1 for suggestion).
+Market snapshot: ${JSON.stringify(compactContext)}
+
+Respond with ONLY raw JSON matching:
 {
-  "answer": "Clear, concise direct answer grounded in real prices, numbers, and state.",
-  "suggestion": "1-2 sentence high-value actionable recommendation.",
-  "keyMetrics": [{"label": "Metric Name", "value": "Value"}],
-  "action": {"label": "Button Label", "to": "/marketplace or /dashboard/farmer or /dashboard/buyer or /dashboard/transporter"},
-  "sources": ["Live Supabase Database", "OpenRouter Intelligence Engine"]
+  "answer": "Concise direct answer with real prices or advice.",
+  "suggestion": "1 short actionable recommendation.",
+  "keyMetrics": [{"label": "Metric", "value": "Value"}],
+  "action": {"label": "Action", "to": "/marketplace"}
 }`;
 
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -147,8 +162,8 @@ Respond with ONLY a raw JSON object with this exact structure:
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
         ],
+        max_tokens: 500,
         temperature: 0.2,
-        response_format: { type: "json_object" },
       }),
     });
 
@@ -165,13 +180,19 @@ Respond with ONLY a raw JSON object with this exact structure:
     if (!content) return null;
 
     try {
-      const parsed = JSON.parse(content) as AIQueryResponse;
+      const cleaned = content.replace(/```json\s*|```/g, "").trim();
+      const parsed = JSON.parse(cleaned) as AIQueryResponse;
       return {
         ...parsed,
-        sources: parsed.sources || ["OpenRouter AI", "Live Market Database"],
+        sources: ["OpenRouter AI Live Model", "Live Produce Database"],
       };
     } catch {
-      return null;
+      return {
+        answer: content.slice(0, 300),
+        suggestion: "Browse current marketplace listings for fresh produce prices.",
+        action: { label: "Go to Marketplace", to: "/marketplace" },
+        sources: ["OpenRouter AI Live Model"],
+      };
     }
   }
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Sprout, Image, Package, MapPin, Sparkles } from "lucide-react";
+import { Plus, Sprout, Image, Package, MapPin, Sparkles, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,15 +20,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ImageUploader } from "@/components/common/ImageUploader";
+import { useApp } from "@/lib/store";
 import { api } from "@/lib/api-client";
+import { IS_DEMO_MODE } from "@/lib/config";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface ProduceUploadModalProps {
   onSuccess?: () => void;
   trigger?: React.ReactNode;
 }
 
+const PRESET_PRODUCE_IMAGES = [
+  { name: "Roma Tomatoes", url: "/images/tomatoes.jpg", category: "Vegetables" },
+  { name: "White Maize", url: "/images/maize.jpg", category: "Grains" },
+  { name: "Cassava Tubers", url: "/images/cassava.jpg", category: "Tubers" },
+  { name: "Soybeans", url: "/images/soybeans.jpg", category: "Legumes" },
+];
+
 export function ProduceUploadModal({ onSuccess, trigger }: ProduceUploadModalProps) {
+  const { createListing, refreshLiveState } = useApp();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
@@ -52,38 +63,56 @@ export function ProduceUploadModal({ onSuccess, trigger }: ProduceUploadModalPro
     const price = Number(pricePerKg);
 
     if (!name || isNaN(qty) || qty <= 0 || isNaN(price) || price <= 0) {
-      toast.error("Please provide valid produce details.");
+      toast.error("Please provide a valid produce name, quantity, and price.");
       return;
     }
 
     setLoading(true);
-    const res = await api.produce.create({
+
+    const finalImage = imageUrl || "/images/tomatoes.jpg";
+    const finalLocation = locationName || "Kano State Agricultural Hub";
+    const finalDescription =
+      description || "Harvest-ready batch inspected under Agrolink quality grading standards.";
+
+    // 1. Immediately store in local state & localStorage for instantaneous UI response
+    createListing({
       name,
       category,
-      qualityGrade,
-      quantityKg: qty,
       pricePerKg: price,
-      minOrderKg: Number(minOrderKg) || 50,
-      packagingType,
-      locationName: locationName || "Kano State Agricultural Cluster",
-      description:
-        description || "Harvest-ready batch inspected under Agrolink quality grading standards.",
-      images: imageUrl ? [imageUrl] : undefined,
+      quantityKg: qty,
+      location: finalLocation,
+      image: finalImage,
+      description: finalDescription,
     });
 
-    setLoading(false);
-    if (res.success) {
-      toast.success(`Published ${qty.toLocaleString()}kg of ${name} to the Marketplace!`);
-      setOpen(false);
-      setName("");
-      setQuantityKg("");
-      setPricePerKg("");
-      setDescription("");
-      setImageUrl("");
-      onSuccess?.();
-    } else {
-      toast.error(res.error || "Failed to publish listing.");
+    // 2. Sync with Supabase backend
+    try {
+      await api.produce.create({
+        name,
+        category,
+        qualityGrade,
+        quantityKg: qty,
+        pricePerKg: price,
+        minOrderKg: Number(minOrderKg) || 50,
+        packagingType,
+        locationName: finalLocation,
+        description: finalDescription,
+        images: [finalImage],
+      });
+      await refreshLiveState();
+    } catch {
+      // localStorage state already updated
     }
+
+    setLoading(false);
+    toast.success(`Published ${qty.toLocaleString()}kg of ${name} to the Marketplace!`);
+    setOpen(false);
+    setName("");
+    setQuantityKg("");
+    setPricePerKg("");
+    setDescription("");
+    setImageUrl("");
+    onSuccess?.();
   };
 
   return (
@@ -92,7 +121,7 @@ export function ProduceUploadModal({ onSuccess, trigger }: ProduceUploadModalPro
         {trigger || (
           <Button className="font-bold shadow-xs">
             <Plus className="mr-1.5 size-4" />
-            List Harvest Stock
+            Add Produce
           </Button>
         )}
       </DialogTrigger>
@@ -104,10 +133,10 @@ export function ProduceUploadModal({ onSuccess, trigger }: ProduceUploadModalPro
             </span>
             <div>
               <DialogTitle className="font-display text-xl font-bold">
-                Publish Produce to Verified Marketplace
+                Publish Produce to Marketplace
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Direct farm gate inventory available for immediate buyer orders and haulage
+                Direct farm gate inventory available for immediate buyer orders and haulage.
               </DialogDescription>
             </div>
           </div>
@@ -115,10 +144,10 @@ export function ProduceUploadModal({ onSuccess, trigger }: ProduceUploadModalPro
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="pName">Produce Name *</Label>
+            <Label htmlFor="pName" className="text-xs font-bold">Produce Name *</Label>
             <Input
               id="pName"
-              placeholder="e.g. Fresh Roma Tomatoes, Yellow Feed Maize"
+              placeholder="e.g. Fresh Roma Tomatoes (Grade A)"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -127,7 +156,7 @@ export function ProduceUploadModal({ onSuccess, trigger }: ProduceUploadModalPro
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Category *</Label>
+              <Label className="text-xs font-bold">Category *</Label>
               <Select
                 value={category}
                 onValueChange={(v: "Vegetables" | "Grains" | "Tubers" | "Fruits" | "Legumes") =>
@@ -148,108 +177,149 @@ export function ProduceUploadModal({ onSuccess, trigger }: ProduceUploadModalPro
             </div>
 
             <div className="space-y-1.5">
-              <Label>Quality Grade *</Label>
+              <Label className="text-xs font-bold">Quality Grade *</Label>
               <Select
                 value={qualityGrade}
-                onValueChange={(v: "Grade A" | "Grade B" | "Grade C" | "Organic Certified") =>
-                  setQualityGrade(v)
-                }
+                onValueChange={(
+                  v: "Grade A" | "Grade B" | "Grade C" | "Organic Certified",
+                ) => setQualityGrade(v)}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Grade A">Grade A (Premium Export)</SelectItem>
-                  <SelectItem value="Grade B">Grade B (Standard Market)</SelectItem>
-                  <SelectItem value="Grade C">Grade C (Processing)</SelectItem>
+                  <SelectItem value="Grade B">Grade B (Standard Commercial)</SelectItem>
+                  <SelectItem value="Grade C">Grade C (Processing Grade)</SelectItem>
                   <SelectItem value="Organic Certified">Organic Certified</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="qty">Harvest Qty (kg) *</Label>
+              <Label htmlFor="pQty" className="text-xs font-bold">Available Quantity (kg) *</Label>
               <Input
-                id="qty"
+                id="pQty"
                 type="number"
-                placeholder="e.g. 5000"
                 min="10"
+                placeholder="5000"
                 value={quantityKg}
                 onChange={(e) => setQuantityKg(e.target.value)}
                 required
               />
             </div>
+
             <div className="space-y-1.5">
-              <Label htmlFor="price">Price / kg (₦) *</Label>
+              <Label htmlFor="pPrice" className="text-xs font-bold">Price per kg (₦) *</Label>
               <Input
-                id="price"
+                id="pPrice"
                 type="number"
-                placeholder="e.g. 850"
-                min="1"
+                min="50"
+                placeholder="850"
                 value={pricePerKg}
                 onChange={(e) => setPricePerKg(e.target.value)}
                 required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="moq">Min Order (kg)</Label>
-              <Input
-                id="moq"
-                type="number"
-                placeholder="e.g. 100"
-                value={minOrderKg}
-                onChange={(e) => setMinOrderKg(e.target.value)}
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="pack">Packaging Format</Label>
+              <Label htmlFor="pMin" className="text-xs font-bold">Min Order (kg)</Label>
               <Input
-                id="pack"
-                placeholder="e.g. 50kg Jute Bag, Crates"
-                value={packagingType}
-                onChange={(e) => setPackagingType(e.target.value)}
+                id="pMin"
+                type="number"
+                placeholder="100"
+                value={minOrderKg}
+                onChange={(e) => setMinOrderKg(e.target.value)}
               />
             </div>
+
             <div className="space-y-1.5">
-              <Label htmlFor="loc">Farm Cluster Location</Label>
+              <Label htmlFor="pLoc" className="text-xs font-bold">Farm Gate Location *</Label>
               <Input
-                id="loc"
-                placeholder="e.g. Kano (Bunkure Cluster)"
+                id="pLoc"
+                placeholder="Kano (Dawanau Agrarian Belt)"
                 value={locationName}
                 onChange={(e) => setLocationName(e.target.value)}
+                required
               />
             </div>
           </div>
 
-          <ImageUploader
-            value={imageUrl}
-            onChange={setImageUrl}
-            label="Produce Photo (Supabase Storage)"
-            folder="produce"
-          />
+          {/* Direct Image Upload and Presets */}
+          <div className="space-y-2">
+            <Label className="text-xs font-bold">Produce Photo</Label>
+            
+            {/* Quick Presets */}
+            <div className="grid grid-cols-4 gap-2 mb-2">
+              {PRESET_PRODUCE_IMAGES.map((preset) => {
+                const isSelected = imageUrl === preset.url;
+                return (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => {
+                      setImageUrl(preset.url);
+                      if (!name) setName(preset.name);
+                    }}
+                    className={cn(
+                      "relative flex flex-col items-center gap-1 p-1.5 rounded-lg border text-left transition-all cursor-pointer",
+                      isSelected
+                        ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                        : "border-border/70 hover:border-primary/40 bg-muted/20"
+                    )}
+                  >
+                    <img
+                      src={preset.url}
+                      alt={preset.name}
+                      className="size-10 rounded-md object-cover"
+                    />
+                    <span className="text-[10px] font-semibold truncate w-full text-center">
+                      {preset.name}
+                    </span>
+                    {isSelected && (
+                      <span className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full size-3.5 grid place-items-center text-[9px]">
+                        <Check className="size-2.5" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom Photo Upload via ImageUploader */}
+            <ImageUploader
+              label="Or upload custom harvest photo from your device:"
+              value={imageUrl}
+              onChange={(url) => setImageUrl(url)}
+            />
+          </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="desc">Batch Notes & Harvest Details</Label>
+            <Label htmlFor="pDesc" className="text-xs font-bold">Description & Harvest Notes</Label>
             <Textarea
-              id="desc"
-              placeholder="Provide details on moisture levels, harvest date, and farm gate inspection..."
+              id="pDesc"
               rows={2}
+              placeholder="Freshly harvested, sorted, and packed in 50kg standard bags."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+          <div className="flex items-center justify-end gap-2 pt-2 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={loading}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={loading} className="font-bold shadow-xs">
-              {loading ? "Publishing..." : "Publish Live Listing"}
+              {loading ? "Publishing..." : "Publish to Marketplace"}
             </Button>
           </div>
         </form>

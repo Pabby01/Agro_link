@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 import { Page, PageHeader } from "@/components/layout/AppShell";
 import { ProduceCard } from "@/components/marketplace/ProduceCard";
+import { ProduceUploadModal } from "@/components/marketplace/ProduceUploadModal";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -73,10 +75,13 @@ function MarketplacePage() {
 
   return (
     <Page>
-      <PageHeader
-        title="Marketplace"
-        subtitle="Every listing shows the farmer's trust score so you know exactly who you are buying from."
-      />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <PageHeader
+          title="Marketplace"
+          subtitle="Every listing shows the farmer's trust score so you know exactly who you are buying from."
+        />
+        <ProduceUploadModal />
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: -10 }}
